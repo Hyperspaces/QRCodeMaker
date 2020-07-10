@@ -1,0 +1,8 @@
+﻿{
+  "WXQRUrl": "https://api.weixin.qq.com/wxa/getwxacodeunlimit",
+  "GetAccessToken": "https://api.weixin.qq.com/cgi-bin/token",
+  "Appid": "wxdb2e1c772aaeb33f",
+  "Secret": "7209684ea31204fe1ace9bdfdac1e274",
+  "Count": 500,
+  "StartNum": 1
+}
