@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace QRCodeMaker
@@ -32,21 +33,17 @@ namespace QRCodeMaker
             StartNum = setting.StartNum == null ? 1 : Convert.ToInt32(setting.StartNum);
             Index = StartNum;
 
-            var tokenResponse = await GetAccessTokenAsync(setting);
+            //var tokenResponse = await GetAccessTokenAsync(setting);
+            var tokenResponse = "35_qPzOT7cNcCpT9jjqAyHsx8V_YIOcluS54MUeVGsUX-X7HFuzFuL9HZp8cy-JLtaG_J8TSCRzEpUWK-aJlWurjUU6p7uPq7aV0cENVJ2YsQOCe7iTHw6-f6slVHmLbLjlbxiohsLDJLGzSIdiBTQiAIAGYV";
 
             Queue q = new Queue(1000);
 
-            Task[] tasks = new Task[30];
             //请求微信二维码图片buffer
-            for (int i = 0; i < 30; i++)
+            for (int i = 0; i < 1; i++)
             {
-                tasks[i] = Task.Factory.StartNew(() =>
-                {
-                    SavePictureBuffer(setting.WXQRUrl, tokenResponse.access_token, q, StartNum + Count);
-                });
+                await Task.Run(() => SavePictureBuffer(setting.WXQRUrl, tokenResponse, q, StartNum + Count));
             }
 
-            Task.WaitAll(tasks);
             Console.ReadKey();
             Console.WriteLine($"所有二维码已保存到数据库中，开始生成二维码");
 
@@ -163,6 +160,7 @@ namespace QRCodeMaker
                 var inputModel = new
                 {
                     scene = code,
+                    page = "letter/pages/Guide/Guide"
                 };
                 string postData = JsonConvert.SerializeObject(inputModel);
                 var pictureBuffer = await HttpHelper.PostFile(postData, $"{url}?access_token={accessToken}")
@@ -171,6 +169,10 @@ namespace QRCodeMaker
                 {
                     Console.WriteLine($"第{Index}张二维码保存失败，再次尝试保存");
                     SavePictureBuffer(url, accessToken, q, finNum);
+                    lock (getObject)
+                    {
+                        context.SaveChanges();
+                    }
                 }
                 else
                 {
@@ -191,12 +193,13 @@ namespace QRCodeMaker
 
         public static string GetCode()
         {
+            var prefix = "HL";
             TimeSpan ts = DateTime.Now.ToUniversalTime() - new DateTime(1970, 1, 1);//ToUniversalTime()转换为标准时区的时间,去掉的话直接就用北京时间
             //随机数
             var strRandomResult = NextRandom(1000, 1).ToString();
 
-            var code = (long)ts.TotalMilliseconds + strRandomResult;//13位当前时间戳+4位随机数
-            return code.ToString();
+            var code = prefix + (long)ts.TotalMilliseconds + strRandomResult;//13位当前时间戳+4位随机数
+            return code;
         }
 
         public static int NextRandom(int numSeeds, int length)
@@ -214,6 +217,22 @@ namespace QRCodeMaker
                 randomResult |= ((uint)randomNumber[i] << ((length - 1 - i) * 8));
             }
             return (int)(randomResult % numSeeds) + 1;
+        }
+
+        private static int GetActiveThreadCount()
+        {
+            int MaxWorkerThreads, miot, AvailableWorkerThreads, aiot;
+
+            //获得最大的线程数量
+            ThreadPool.GetMaxThreads(out MaxWorkerThreads, out miot);
+
+            AvailableWorkerThreads = aiot = 0;
+
+            //获得可用的线程数量
+            ThreadPool.GetAvailableThreads(out AvailableWorkerThreads, out aiot);
+
+            //返回线程池中活动的线程数
+            return MaxWorkerThreads - AvailableWorkerThreads;
         }
     }
 }

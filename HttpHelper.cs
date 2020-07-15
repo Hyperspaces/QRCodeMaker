@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
@@ -9,6 +10,23 @@ namespace QRCodeMaker
 {
     public static class HttpHelper
     {
+
+        private static HttpClient _httpClient = null;
+
+        public static HttpClient CreateHttpClient()
+        {
+            if (_httpClient == null)
+            {
+                var httpClientHandler = new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                };
+                _httpClient = new HttpClient(httpClientHandler);
+            }
+
+            return _httpClient;
+        }
+
         public static async Task<T> Post<T>(string content, string url)
         {
             HttpContent httpContent = new StringContent(content);
@@ -43,11 +61,14 @@ namespace QRCodeMaker
         {
             try
             {
+
+                var httpClient = CreateHttpClient();
                 HttpContent httpContent = new StringContent(content);
                 httpContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                HttpClient httpClient = new HttpClient { Timeout = new TimeSpan(0, 0, 120) };
+                ServicePointManager.SecurityProtocol = (SecurityProtocolType)192 | (SecurityProtocolType)768 | (SecurityProtocolType)3072;
                 HttpResponseMessage response = await httpClient.PostAsync(new Uri(url), httpContent).ConfigureAwait(false);
                 var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
                 if (!response.IsSuccessStatusCode || responseContent.Contains("errmsg"))
                 {
                     Console.WriteLine($"调用接口出错 =>{responseContent}");
@@ -61,7 +82,6 @@ namespace QRCodeMaker
                 {
                     return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
                 }
-
                 return null;
             }
             catch (Exception e)
